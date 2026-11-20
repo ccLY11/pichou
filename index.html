@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Π 动嘉年华 · 计算机与人工智能学院抽奖系统</title>
+<link rel="stylesheet" href="css/main.css" />
+<link rel="stylesheet" href="css/cloud.css" />
+</head>
+<body>
+
+<!-- 背景层 -->
+<canvas id="bg-stars"></canvas>
+<canvas id="bg-digits"></canvas>
+<div class="vignette"></div>
+<div class="grid-lines"></div>
+<div class="scan-overlay"></div>
+<div class="grain"></div>
+
+<!-- 全息外框与刻度 -->
+<div class="holo-frame" aria-hidden="true">
+  <span></span><span></span><span></span><span></span>
+</div>
+<div class="edge-ruler ruler-y" aria-hidden="true"></div>
+<div class="edge-ruler ruler-x" aria-hidden="true"></div>
+
+<!-- ── 顶部系统栏 ─────────────────────────── -->
+<header class="hud">
+  <div class="hud-left">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 44 44" aria-hidden="true">
+          <polygon points="22,2 40,12 40,32 22,42 4,32 4,12" fill="none" stroke="currentColor" stroke-width="1" opacity=".65" />
+          <circle cx="22" cy="22" r="12" fill="none" stroke="currentColor" stroke-width=".7" opacity=".3" stroke-dasharray="2 3" />
+          <text x="22" y="29" text-anchor="middle" font-family="Consolas, monospace" font-size="18" fill="currentColor">π</text>
+          <circle cx="22" cy="2" r="1.6" fill="currentColor" opacity=".9" />
+          <circle cx="40" cy="22" r="1.6" fill="currentColor" opacity=".9" />
+          <circle cx="4" cy="32" r="1.6" fill="currentColor" opacity=".9" />
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="brand-row">
+          <h1>Π 动嘉年华</h1>
+          <span class="brand-code">SCAI / 2026</span>
+        </div>
+        <p>辽宁理工学院 · 计算机与人工智能学院</p>
+        <p class="brand-en">SCHOOL OF COMPUTING &amp; ARTIFICIAL INTELLIGENCE · LUCKY NODE SYSTEM</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="hud-center">
+    <div class="sys-clock">
+      <span class="sys-dot"></span>
+      <b id="hud-clock">00:00:00</b>
+      <em>UTC+8</em>
+    </div>
+    <div class="sys-meta">
+      <span>LAT 42.0186° N</span>
+      <span class="sep">/</span>
+      <span>LON 121.6700° E</span>
+      <span class="sep">/</span>
+      <span id="hud-phase">STANDBY</span>
+    </div>
+  </div>
+
+  <div class="hud-right">
+    <div class="stats">
+      <div class="stat"><b id="stat-total">0</b><span>POOL</span><i>候选人</i></div>
+      <div class="stat"><b id="stat-left">0</b><span>REMAIN</span><i>待抽取</i></div>
+      <div class="stat"><b id="stat-won">0</b><span>WON</span><i>已中奖</i></div>
+      <div class="stat"><b id="stat-rate">0%</b><span>YIELD</span><i>中奖率</i></div>
+    </div>
+    <div class="hud-ctl">
+      <button class="fs-btn" id="btn-sound" title="科技感声效开关">
+        <span class="sound-glyph"><i></i><i></i><i></i></span>
+        <span id="sound-text">声效</span>
+      </button>
+      <button class="fs-btn" id="btn-fullscreen" title="全屏展示（快捷键 F）">
+        <span class="fs-glyph"></span>
+        <span id="fs-text">全屏</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="hud-progress"><span id="prog-fill"></span></div>
+</header>
+
+<!-- ── 左侧数据栏 ─────────────────────────── -->
+<aside class="rail rail-left" id="rail-left">
+  <section class="panel">
+    <div class="panel-head"><span class="idx">01</span><span class="ttl">SESSION</span><span class="rule"></span></div>
+    <div class="kv"><span class="k">Pool Size</span><b class="v" id="rl-total">0</b></div>
+    <div class="kv"><span class="k">Consumed</span><b class="v" id="rl-won">0</b></div>
+    <div class="kv"><span class="k">Remaining</span><b class="v" id="rl-remain">0</b></div>
+    <div class="bar"><i id="rl-bar"></i></div>
+    <div class="kv sub"><span class="k">Coverage</span><b class="v sm" id="rl-cov">0.0%</b></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><span class="idx">02</span><span class="ttl">NODE MATRIX</span><span class="rule"></span></div>
+    <div class="matrix" id="rl-matrix"></div>
+    <div class="legend">
+      <span><i class="lg live"></i>VALID</span>
+      <span><i class="lg used"></i>LOCKED</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><span class="idx">03</span><span class="ttl">SEQUENCE</span><span class="rule"></span></div>
+    <div class="seq" id="rl-rounds"></div>
+  </section>
+</aside>
+
+<!-- ── 右侧数据栏 ─────────────────────────── -->
+<aside class="rail rail-right" id="rail-right">
+  <section class="panel">
+    <div class="panel-head"><span class="idx">04</span><span class="ttl">SAMPLING YIELD</span><span class="rule"></span></div>
+    <div class="chart-wrap">
+      <canvas id="rl-yield" width="220" height="96"></canvas>
+      <div class="chart-axis"><span>0</span><span>30</span><span>60</span></div>
+    </div>
+    <div class="kv sub"><span class="k">Mode</span><b class="v sm" id="rl-mode">IDLE</b></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><span class="idx">05</span><span class="ttl">RECENT DRAW</span><span class="rule"></span></div>
+    <div class="recent" id="rl-recent"></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><span class="idx">06</span><span class="ttl">ENVIRONMENT</span><span class="rule"></span></div>
+    <div class="kv"><span class="k">Data Source</span><b class="v sm">ROSTER</b></div>
+    <div class="kv"><span class="k">Engine</span><b class="v sm">FIB-SPHERE</b></div>
+    <div class="kv"><span class="k">Latency</b><b class="v sm" id="rl-lat">0 ms</b></div>
+    <div class="kv"><span class="k">Integrity</span><b class="v sm ok">LOCKED</b></div>
+  </section>
+</aside>
+
+<!-- ── 主舞台：姓名星云 ───────────────────── -->
+<main class="stage">
+  <div class="pi-watermark">π</div>
+  <div class="floor-grid" aria-hidden="true"><i></i></div>
+  <div class="horizon-line" aria-hidden="true"></div>
+  <div class="orbit-ring ring-a"></div>
+  <div class="orbit-ring ring-b"></div>
+  <div class="radar" aria-hidden="true"></div>
+  <div class="dial" id="dial" aria-hidden="true"></div>
+  <div class="stage-cross" aria-hidden="true"><i></i><i></i></div>
+
+  <div class="cloud-wrap">
+    <canvas id="holo-net"></canvas>
+    <div class="cloud" id="cloud"></div>
+    <div class="cluster-meta cm-tl"><span>CLUSTER</span><b>FIB-SPHERE</b></div>
+    <div class="cluster-meta cm-tr"><span>NODES</span><b id="cm-nodes">00 / 00</b></div>
+    <div class="cluster-meta cm-bl"><span>INTEGRITY</span><b>LOCKED</b></div>
+    <div class="cluster-meta cm-br"><span>VIEW</span><b id="cm-view">YAW 000.0°</b></div>
+  </div>
+
+  <!-- 数据核心：先由信息流扫掠显影，再点亮 -->
+  <div class="core-pi" id="core-pi" aria-hidden="true">π</div>
+
+  <div class="stage-caption">
+    <span class="cap-line"></span>
+    <span id="caption-text">幸运星云 · 等待抽取</span>
+    <span class="cap-en">HOLOGRAPHIC LUCKY CLUSTER</span>
+    <span class="cap-line"></span>
+  </div>
+
+  <div class="flash" id="flash"></div>
+  <div class="shockwave" id="shockwave"></div>
+  <div class="draw-scan"></div>
+</main>
+
+<!-- ── 数据总线：全息遥测 ─────────────────── -->
+<div class="telemetry" id="telemetry">
+  <span class="tl-tag">SYS·Π-2026</span>
+  <span class="tl-cell">NODE<b id="tel-node">0</b></span>
+  <span class="tl-cell">WON<b id="tel-won">0</b></span>
+  <span class="tl-cell">RATE<b id="tel-rate">0.0%</b></span>
+  <span class="tl-cell">ROUND<b id="tel-round">00</b></span>
+  <span class="tl-cell">CLUSTER<b>FIB-042</b></span>
+  <span class="tl-cell">I/O<b id="tel-io">0.0</b></span>
+  <canvas class="tl-wave" id="rail-wave" width="120" height="24"></canvas>
+  <span class="tl-state"><i></i>GRID ONLINE</span>
+</div>
+
+<!-- ── 底部控制台 ─────────────────────────── -->
+<footer class="dock">
+  <div class="dock-tools">
+    <button class="tool-btn" id="btn-names"><span class="tb-idx">A</span>名单管理</button>
+    <button class="tool-btn" id="btn-history"><span class="tb-idx">B</span>获奖记录</button>
+  </div>
+
+  <div class="dock-action">
+    <button class="btn-draw" id="btn-draw">
+      <span class="pi-mini">π</span>
+      <span class="draw-label">
+        <span id="btn-draw-text">开始抽取</span>
+        <em>INITIATE SEQUENCE</em>
+      </span>
+    </button>
+  </div>
+</footer>
+
+<!-- 圆周率滚动字幕 -->
+<div class="digits-line" aria-hidden="true">
+  <div class="digits-track">
+    <span>3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986…</span>
+    <span>3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986…</span>
+  </div>
+</div>
+
+<!-- ── 中奖弹层 ───────────────────────────── -->
+<div class="winner-layer" id="winner-layer">
+  <div class="winner-card" id="winner-card">
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
+    <div class="w-pi">π</div>
+
+    <div class="w-top">
+      <span class="w-status"><i></i>RESULT · CONFIRMED</span>
+      <span class="w-ticket" id="w-ticket">No. 000000</span>
+    </div>
+
+    <div class="w-kicker">LUCKY NODE FOUND · 计算机与人工智能学院 · Π NIGHT 2026</div>
+    <div class="w-names" id="w-names"></div>
+    <div class="w-tip">3.14159265358979… 幸运由此展开</div>
+
+    <div class="w-grid" id="w-grid"></div>
+
+    <div class="w-actions">
+      <button class="ghost-btn" id="btn-close-winner">收下好运</button>
+      <button class="btn-draw small" id="btn-again">再抽一次</button>
+    </div>
+  </div>
+</div>
+
+<!-- 名单管理 -->
+<div class="modal" id="modal-names">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="idx">01</span>
+      <h2>名单管理</h2>
+      <span class="ttl">ROSTER CONFIGURATION</span>
+    </div>
+    <p class="modal-hint">每行一条，姓名或幸运数字均可，也支持逗号、顿号分隔；导入 Excel 时优先读取「幸运数字」列。保存后中奖状态将重置。</p>
+    <div class="import-row">
+      <label class="import-btn" for="file-import">
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <path d="M8 2v8M8 10l-3-3M8 10l3-3M3 12v1.5h10V12" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        导入文件
+      </label>
+      <input type="file" id="file-import" accept=".xlsx,.xls,.xlsm,.csv,.txt" hidden />
+      <span class="import-hint">支持 Excel / CSV / TXT，自动识别姓名列</span>
+    </div>
+    <textarea id="names-input" spellcheck="false"></textarea>
+    <div class="modal-actions">
+      <button class="ghost-btn reset" id="btn-reset">重置中奖状态</button>
+      <button class="ghost-btn" id="btn-names-cancel">取消</button>
+      <button class="btn-draw small" id="btn-names-save">保存名单</button>
+    </div>
+  </div>
+</div>
+
+<!-- 获奖记录 -->
+<aside class="drawer" id="drawer-history">
+  <div class="drawer-head">
+    <div class="drawer-title">
+      <span class="idx">01</span>
+      <h3>获奖记录</h3>
+      <span class="ttl">RESULT LOG</span>
+    </div>
+    <div class="drawer-actions">
+      <button class="tool-btn danger" id="btn-history-clear">清空记录</button>
+      <button class="tool-btn" id="btn-history-close">关闭</button>
+    </div>
+  </div>
+  <div class="drawer-list" id="history-list"></div>
+</aside>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/audio.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
